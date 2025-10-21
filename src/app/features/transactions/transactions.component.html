@@ -1,0 +1,195 @@
+<div class="transactions-page">
+  <header class="page-header">
+    <div>
+      <h1>💳 Transactions</h1>
+      <p class="subtitle">Manage all your income and expenses</p>
+    </div>
+    <button class="btn-primary" (click)="openAddModal()">
+      <span>➕</span> Add Transaction
+    </button>
+  </header>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Balance</div>
+      <div class="stat-value balance">{{ formatCurrency(transactionService.totalBalance()) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Income</div>
+      <div class="stat-value income">{{ formatCurrency(transactionService.totalIncome()) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Expenses</div>
+      <div class="stat-value expense">{{ formatCurrency(transactionService.totalExpenses()) }}</div>
+    </div>
+  </div>
+
+  <div class="transactions-list">
+    @if (transactionService.transactions().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <p>No transactions yet</p>
+        <button class="btn-primary" (click)="openAddModal()">Add Your First Transaction</button>
+      </div>
+    } @else {
+      @for (transaction of transactionService.transactions(); track transaction.id) {
+        <div class="transaction-card" [class.income]="transaction.type === TransactionType.INCOME">
+          <div class="transaction-icon">
+            {{ getCategoryIcon(transaction.category) }}
+          </div>
+          <div class="transaction-details">
+            <div class="transaction-header">
+              <h3>{{ transaction.description }}</h3>
+              <span class="transaction-amount" [class.income]="transaction.type === TransactionType.INCOME">
+                {{ transaction.type === TransactionType.INCOME ? '+' : '-' }}{{ formatCurrency(transaction.amount) }}
+              </span>
+            </div>
+            <div class="transaction-meta">
+              <span class="badge" [class.income]="transaction.type === TransactionType.INCOME">
+                {{ transaction.type }}
+              </span>
+              <span class="separator">•</span>
+              <span>{{ transaction.category }}</span>
+              <span class="separator">•</span>
+              <span>{{ getAccountName(transaction.accountId) }}</span>
+              <span class="separator">•</span>
+              <span>{{ formatDate(transaction.date) }}</span>
+            </div>
+          </div>
+          <div class="transaction-actions">
+            <button class="btn-action edit" (click)="openEditModal(transaction)" title="Edit">
+              ✏️
+            </button>
+            <button class="btn-action delete" (click)="deleteTransaction(transaction.id)" title="Delete">
+              🗑️
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Modal -->
+  @if (showModal()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>{{ isEditMode() ? '✏️ Edit Transaction' : '➕ Add Transaction' }}</h2>
+          <button class="btn-close" (click)="closeModal()">✕</button>
+        </div>
+
+        <form [formGroup]="transactionForm" (ngSubmit)="onSubmit()" class="modal-form">
+          @if (errorMessage()) {
+            <div class="alert alert-error">
+              {{ errorMessage() }}
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="accountId">Account *</label>
+            <select id="accountId" formControlName="accountId" [class.error]="accountId?.invalid && accountId?.touched">
+              <option value="">Select an account</option>
+              @for (account of accountService.accounts(); track account.id) {
+                <option [value]="account.id">{{ account.name }} ({{ account.type }})</option>
+              }
+            </select>
+            @if (accountId?.invalid && accountId?.touched) {
+              <span class="error-message">Account is required</span>
+            }
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="type">Type *</label>
+              <select id="type" formControlName="type" [class.error]="type?.invalid && type?.touched">
+                @for (t of types; track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="category">Category *</label>
+              <select id="category" formControlName="category" [class.error]="category?.invalid && category?.touched">
+                @for (cat of categories; track cat) {
+                  <option [value]="cat">{{ getCategoryIcon(cat) }} {{ cat }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="amount">Amount *</label>
+              <input
+                type="number"
+                id="amount"
+                formControlName="amount"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                [class.error]="amount?.invalid && amount?.touched"
+              />
+              @if (amount?.invalid && amount?.touched) {
+                <span class="error-message">
+                  @if (amount?.errors?.['required']) {
+                    Amount is required
+                  }
+                  @if (amount?.errors?.['min']) {
+                    Amount must be greater than 0
+                  }
+                </span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="date">Date *</label>
+              <input
+                type="date"
+                id="date"
+                formControlName="date"
+                [class.error]="date?.invalid && date?.touched"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description *</label>
+            <input
+              type="text"
+              id="description"
+              formControlName="description"
+              placeholder="Enter transaction description"
+              [class.error]="description?.invalid && description?.touched"
+            />
+            @if (description?.invalid && description?.touched) {
+              <span class="error-message">
+                @if (description?.errors?.['required']) {
+                  Description is required
+                }
+                @if (description?.errors?.['minlength']) {
+                  Description must be at least 3 characters
+                }
+              </span>
+            }
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="closeModal()" [disabled]="isLoading()">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" [disabled]="isLoading()">
+              @if (isLoading()) {
+                <span class="spinner"></span>
+                Saving...
+              } @else {
+                {{ isEditMode() ? 'Update' : 'Create' }}
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>
+

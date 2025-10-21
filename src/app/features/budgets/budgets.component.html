@@ -1,0 +1,194 @@
+<div class="budgets-page">
+  <header class="page-header">
+    <div>
+      <h1>🎯 Budgets</h1>
+      <p class="subtitle">Track your spending against budget goals</p>
+    </div>
+    <button class="btn-primary" (click)="openAddModal()">
+      <span>➕</span> Create Budget
+    </button>
+  </header>
+
+  <div class="budgets-grid">
+    @if (budgetService.budgetsWithProgress().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">🎯</span>
+        <p>No budgets set yet</p>
+        <p class="description">Create budgets to track your spending and stay on top of your finances</p>
+        <button class="btn-primary" (click)="openAddModal()">Create Your First Budget</button>
+      </div>
+    } @else {
+      @for (budget of budgetService.budgetsWithProgress(); track budget.id) {
+        <div class="budget-card" [class]="getStatusClass(budget)">
+          <div class="budget-header">
+            <div class="budget-title">
+              <div class="budget-icon">{{ getCategoryIcon(budget.category) }}</div>
+              <div>
+                <h3>{{ budget.category }}</h3>
+                <div class="budget-period">{{ budget.period }} Budget</div>
+              </div>
+            </div>
+            <div class="budget-actions">
+              <button class="btn-action edit" (click)="openEditModal(budget)" title="Edit">
+                ✏️
+              </button>
+              <button class="btn-action delete" (click)="deleteBudget(budget.id)" title="Delete">
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          <div class="budget-amounts">
+            <div class="amount-row">
+              <span class="label">Spent</span>
+              <span class="value spent">{{ formatCurrency(budget.spent) }}</span>
+            </div>
+            <div class="amount-row">
+              <span class="label">Budget</span>
+              <span class="value budget">{{ formatCurrency(budget.amount) }}</span>
+            </div>
+            <div class="amount-row remaining-row">
+              <span class="label">Remaining</span>
+              <span class="value remaining" [class.negative]="budget.remaining < 0">
+                {{ formatCurrency(budget.remaining) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">Progress</span>
+              <span class="progress-percentage" [class.over]="budget.isOverBudget">
+                {{ budget.progress.toFixed(1) }}%
+              </span>
+            </div>
+            <div class="progress-bar">
+              <div 
+                class="progress-fill" 
+                [style.width.%]="budget.progress > 100 ? 100 : budget.progress"
+                [class.over]="budget.isOverBudget"
+                [class.warning]="budget.progress >= 80 && !budget.isOverBudget"
+              ></div>
+            </div>
+          </div>
+
+          <div class="budget-status">
+            @if (budget.isOverBudget) {
+              <span class="status-badge over">⚠️ Over Budget</span>
+            } @else if (budget.progress >= 80) {
+              <span class="status-badge warning">⚡ Close to Limit</span>
+            } @else {
+              <span class="status-badge good">✅ On Track</span>
+            }
+          </div>
+
+          <div class="budget-dates">
+            <span>{{ formatDate(budget.startDate) }}</span>
+            <span>→</span>
+            <span>{{ formatDate(budget.endDate) }}</span>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Modal -->
+  @if (showModal()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>{{ isEditMode() ? '✏️ Edit Budget' : '➕ Create Budget' }}</h2>
+          <button class="btn-close" (click)="closeModal()">✕</button>
+        </div>
+
+        <form [formGroup]="budgetForm" (ngSubmit)="onSubmit()" class="modal-form">
+          @if (errorMessage()) {
+            <div class="alert alert-error">
+              {{ errorMessage() }}
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="category">Category *</label>
+            <select id="category" formControlName="category" [class.error]="category?.invalid && category?.touched">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ getCategoryIcon(cat) }} {{ cat }}</option>
+              }
+            </select>
+            @if (category?.invalid && category?.touched) {
+              <span class="error-message">Category is required</span>
+            }
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="amount">Budget Amount *</label>
+              <input
+                type="number"
+                id="amount"
+                formControlName="amount"
+                placeholder="0.00"
+                step="0.01"
+                min="1"
+                [class.error]="amount?.invalid && amount?.touched"
+              />
+              @if (amount?.invalid && amount?.touched) {
+                <span class="error-message">
+                  @if (amount?.errors?.['required']) {
+                    Amount is required
+                  }
+                  @if (amount?.errors?.['min']) {
+                    Amount must be at least $1
+                  }
+                </span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="period">Period *</label>
+              <select id="period" formControlName="period" [class.error]="period?.invalid && period?.touched">
+                @for (p of periods; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          @if (!isEditMode()) {
+            <div class="form-group">
+              <label for="startDate">Start Date *</label>
+              <input
+                type="date"
+                id="startDate"
+                formControlName="startDate"
+                [class.error]="startDate?.invalid && startDate?.touched"
+              />
+              @if (startDate?.invalid && startDate?.touched) {
+                <span class="error-message">Start date is required</span>
+              }
+            </div>
+          } @else {
+            <div class="info-box">
+              <strong>Note:</strong> Start date cannot be modified after budget creation.
+            </div>
+          }
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="closeModal()" [disabled]="isLoading()">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" [disabled]="isLoading()">
+              @if (isLoading()) {
+                <span class="spinner"></span>
+                Saving...
+              } @else {
+                {{ isEditMode() ? 'Update' : 'Create' }}
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>
+

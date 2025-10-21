@@ -1,0 +1,279 @@
+<div class="dashboard">
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">💰</span>
+        <h2>Finance Tracker</h2>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📊</span>
+        <span>Dashboard</span>
+      </a>
+      <a routerLink="/transactions" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">💳</span>
+        <span>Transactions</span>
+      </a>
+      <a routerLink="/accounts" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">🏦</span>
+        <span>Accounts</span>
+      </a>
+      <a routerLink="/budgets" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">🎯</span>
+        <span>Budgets</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ authService.currentUser()?.name?.charAt(0)?.toUpperCase() || '?' }}</div>
+        <div class="user-details">
+          <div class="user-name">{{ authService.currentUser()?.name || 'User' }}</div>
+          <div class="user-email">{{ authService.currentUser()?.email || '' }}</div>
+        </div>
+      </div>
+      <button class="btn-logout" (click)="logout()">
+        <span>🚪</span> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="subtitle">Welcome back, {{ authService.currentUser()?.name || 'User' }}! Here's your financial overview.</p>
+      </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card balance">
+        <div class="stat-icon">💰</div>
+        <div class="stat-content">
+          <div class="stat-label">Total Balance</div>
+          <div class="stat-value">{{ formatCurrency(transactionService.totalBalance()) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card income">
+        <div class="stat-icon">📈</div>
+        <div class="stat-content">
+          <div class="stat-label">Total Income</div>
+          <div class="stat-value">{{ formatCurrency(transactionService.totalIncome()) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card expenses">
+        <div class="stat-icon">📉</div>
+        <div class="stat-content">
+          <div class="stat-label">Total Expenses</div>
+          <div class="stat-value">{{ formatCurrency(transactionService.totalExpenses()) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card accounts-total">
+        <div class="stat-icon">🏦</div>
+        <div class="stat-content">
+          <div class="stat-label">Accounts Balance</div>
+          <div class="stat-value">{{ formatCurrency(accountService.totalBalance()) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="quick-links">
+      <button class="quick-link-btn" (click)="navigateToTransactions()">
+        <span class="btn-icon">➕</span>
+        Add Transaction
+      </button>
+      <button class="quick-link-btn" (click)="navigateToAccounts()">
+        <span class="btn-icon">🏦</span>
+        Manage Accounts
+      </button>
+      <button class="quick-link-btn" (click)="navigateToBudgets()">
+        <span class="btn-icon">🎯</span>
+        Set Budget
+      </button>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+      <h2>Filter Transactions</h2>
+      <div class="filters">
+        <div class="filter-group">
+          <label for="typeFilter">Type</label>
+          <select id="typeFilter" [(ngModel)]="filterType" (ngModelChange)="filterType.set($event)">
+            <option value="ALL">All Types</option>
+            <option [value]="TransactionType.INCOME">Income</option>
+            <option [value]="TransactionType.EXPENSE">Expense</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="categoryFilter">Category</label>
+          <select id="categoryFilter" [(ngModel)]="filterCategory" (ngModelChange)="filterCategory.set($event)">
+            <option value="ALL">All Categories</option>
+            @for (category of categories; track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="dateFrom">From Date</label>
+          <input 
+            type="date" 
+            id="dateFrom" 
+            [(ngModel)]="filterDateFrom"
+            (ngModelChange)="filterDateFrom.set($event)"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label for="dateTo">To Date</label>
+          <input 
+            type="date" 
+            id="dateTo" 
+            [(ngModel)]="filterDateTo"
+            (ngModelChange)="filterDateTo.set($event)"
+          />
+        </div>
+
+        @if (hasActiveFilters()) {
+          <button class="btn-clear-filters" (click)="clearFilters()">
+            Clear Filters
+          </button>
+        }
+      </div>
+
+      <!-- Filtered Stats -->
+      @if (hasActiveFilters()) {
+        <div class="filtered-stats">
+          <div class="filtered-stat">
+            <span class="label">Filtered Income:</span>
+            <span class="value income-text">{{ formatCurrency(filteredIncome()) }}</span>
+          </div>
+          <div class="filtered-stat">
+            <span class="label">Filtered Expenses:</span>
+            <span class="value expense-text">{{ formatCurrency(filteredExpenses()) }}</span>
+          </div>
+          <div class="filtered-stat">
+            <span class="label">Filtered Balance:</span>
+            <span class="value" [class.income-text]="filteredBalance() >= 0" [class.expense-text]="filteredBalance() < 0">
+              {{ formatCurrency(filteredBalance()) }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="transactions-section">
+      <div class="section-header">
+        <h2>Recent Transactions</h2>
+        <span class="transaction-count">{{ filteredTransactions().length }} transactions</span>
+      </div>
+
+      @if (filteredTransactions().length === 0) {
+        <div class="empty-state">
+          <span class="empty-icon">📭</span>
+          <p>No transactions found</p>
+          @if (hasActiveFilters()) {
+            <button class="btn-secondary" (click)="clearFilters()">Clear Filters</button>
+          } @else {
+            <button class="btn-primary" (click)="navigateToTransactions()">Add Your First Transaction</button>
+          }
+        </div>
+      } @else {
+        <div class="transactions-list">
+          @for (transaction of filteredTransactions(); track transaction.id) {
+            <div class="transaction-item" [class.income]="transaction.type === TransactionType.INCOME">
+              <div class="transaction-icon">
+                {{ getCategoryIcon(transaction.category) }}
+              </div>
+              <div class="transaction-details">
+                <div class="transaction-description">{{ transaction.description }}</div>
+                <div class="transaction-meta">
+                  <span class="transaction-category">{{ transaction.category }}</span>
+                  <span class="separator">•</span>
+                  <span class="transaction-account">{{ getAccountName(transaction.accountId) }}</span>
+                  <span class="separator">•</span>
+                  <span class="transaction-date">{{ formatDate(transaction.date) }}</span>
+                </div>
+              </div>
+              <div class="transaction-amount" [class.income]="transaction.type === TransactionType.INCOME">
+                {{ transaction.type === TransactionType.INCOME ? '+' : '-' }}{{ formatCurrency(transaction.amount) }}
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Budgets Overview -->
+    <div class="budgets-section">
+      <div class="section-header">
+        <h2>Budget Overview</h2>
+        <a routerLink="/budgets" class="link">View All →</a>
+      </div>
+
+      @if (budgetService.budgetsWithProgress().length === 0) {
+        <div class="empty-state">
+          <span class="empty-icon">🎯</span>
+          <p>No budgets set yet</p>
+          <button class="btn-primary" (click)="navigateToBudgets()">Create Your First Budget</button>
+        </div>
+      } @else {
+        <div class="budgets-grid">
+          @for (budget of budgetService.budgetsWithProgress(); track budget.id) {
+            <div class="budget-card" [class.over-budget]="budget.isOverBudget">
+              <div class="budget-header">
+                <div>
+                  <div class="budget-category">
+                    {{ getCategoryIcon(budget.category) }} {{ budget.category }}
+                  </div>
+                  <div class="budget-period">{{ budget.period }}</div>
+                </div>
+                <div class="budget-status" [class.over]="budget.isOverBudget">
+                  {{ budget.isOverBudget ? 'Over Budget' : 'On Track' }}
+                </div>
+              </div>
+              <div class="budget-progress">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill" 
+                    [style.width.%]="budget.progress > 100 ? 100 : budget.progress"
+                    [class.over]="budget.isOverBudget"
+                  ></div>
+                </div>
+                <div class="progress-text">{{ budget.progress.toFixed(0) }}%</div>
+              </div>
+              <div class="budget-amounts">
+                <div class="amount-item">
+                  <span class="label">Spent:</span>
+                  <span class="value">{{ formatCurrency(budget.spent) }}</span>
+                </div>
+                <div class="amount-item">
+                  <span class="label">Budget:</span>
+                  <span class="value">{{ formatCurrency(budget.amount) }}</span>
+                </div>
+                <div class="amount-item">
+                  <span class="label">Remaining:</span>
+                  <span class="value" [class.negative]="budget.remaining < 0">
+                    {{ formatCurrency(budget.remaining) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </main>
+</div>
+

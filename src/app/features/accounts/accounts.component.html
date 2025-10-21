@@ -1,0 +1,168 @@
+<div class="accounts-page">
+  <header class="page-header">
+    <div>
+      <h1>🏦 Accounts</h1>
+      <p class="subtitle">Manage your financial accounts</p>
+    </div>
+    <button class="btn-primary" (click)="openAddModal()">
+      <span>➕</span> Add Account
+    </button>
+  </header>
+
+  <div class="total-balance-card">
+    <div class="balance-icon">💰</div>
+    <div class="balance-content">
+      <div class="balance-label">Total Balance Across All Accounts</div>
+      <div class="balance-value">{{ formatCurrency(accountService.totalBalance()) }}</div>
+      <div class="balance-accounts">{{ accountService.accounts().length }} active account{{ accountService.accounts().length !== 1 ? 's' : '' }}</div>
+    </div>
+  </div>
+
+  <div class="accounts-grid">
+    @if (accountService.accounts().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">🏦</span>
+        <p>No accounts yet</p>
+        <button class="btn-primary" (click)="openAddModal()">Create Your First Account</button>
+      </div>
+    } @else {
+      @for (account of accountService.accounts(); track account.id) {
+        <div class="account-card" [attr.data-type]="getAccountColor(account.type)">
+          <div class="account-header">
+            <div class="account-icon">{{ getAccountIcon(account.type) }}</div>
+            <div class="account-actions">
+              <button class="btn-action edit" (click)="openEditModal(account)" title="Edit">
+                ✏️
+              </button>
+              <button class="btn-action delete" (click)="deleteAccount(account.id)" title="Delete">
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          <div class="account-info">
+            <h3>{{ account.name }}</h3>
+            <div class="account-type">{{ account.type }}</div>
+          </div>
+
+          <div class="account-balance">
+            <div class="balance-label">Balance</div>
+            <div class="balance-amount" [class.negative]="account.balance < 0">
+              {{ formatCurrency(account.balance) }}
+            </div>
+          </div>
+
+          <div class="account-footer">
+            <span class="currency-badge">{{ account.currency }}</span>
+            <span class="updated-date">Updated {{ formatDate(account.updatedAt) }}</span>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Modal -->
+  @if (showModal()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>{{ isEditMode() ? '✏️ Edit Account' : '➕ Add Account' }}</h2>
+          <button class="btn-close" (click)="closeModal()">✕</button>
+        </div>
+
+        <form [formGroup]="accountForm" (ngSubmit)="onSubmit()" class="modal-form">
+          @if (errorMessage()) {
+            <div class="alert alert-error">
+              {{ errorMessage() }}
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="name">Account Name *</label>
+            <input
+              type="text"
+              id="name"
+              formControlName="name"
+              placeholder="e.g., Main Checking, Savings Account"
+              [class.error]="name?.invalid && name?.touched"
+            />
+            @if (name?.invalid && name?.touched) {
+              <span class="error-message">
+                @if (name?.errors?.['required']) {
+                  Account name is required
+                }
+                @if (name?.errors?.['minlength']) {
+                  Account name must be at least 2 characters
+                }
+              </span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="type">Account Type *</label>
+            <select id="type" formControlName="type" [class.error]="type?.invalid && type?.touched">
+              @for (accountType of accountTypes; track accountType) {
+                <option [value]="accountType">{{ getAccountIcon(accountType) }} {{ accountType }}</option>
+              }
+            </select>
+          </div>
+
+          @if (!isEditMode()) {
+            <div class="form-group">
+              <label for="balance">Initial Balance *</label>
+              <input
+                type="number"
+                id="balance"
+                formControlName="balance"
+                placeholder="0.00"
+                step="0.01"
+                [class.error]="balance?.invalid && balance?.touched"
+              />
+              @if (balance?.invalid && balance?.touched) {
+                <span class="error-message">
+                  Initial balance is required
+                </span>
+              }
+            </div>
+          } @else {
+            <div class="info-box">
+              <strong>Note:</strong> Balance cannot be edited directly. Use transactions to update the balance.
+            </div>
+          }
+
+          <div class="form-group">
+            <label for="currency">Currency *</label>
+            <input
+              type="text"
+              id="currency"
+              formControlName="currency"
+              placeholder="USD"
+              maxlength="3"
+              [class.error]="currency?.invalid && currency?.touched"
+            />
+            @if (currency?.invalid && currency?.touched) {
+              <span class="error-message">
+                Currency code is required (3 characters)
+              </span>
+            }
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="closeModal()" [disabled]="isLoading()">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" [disabled]="isLoading()">
+              @if (isLoading()) {
+                <span class="spinner"></span>
+                Saving...
+              } @else {
+                {{ isEditMode() ? 'Update' : 'Create' }}
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>
+
