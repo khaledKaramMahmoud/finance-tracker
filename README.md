@@ -296,7 +296,7 @@ This project is created for educational and portfolio purposes.
 
 ## 👨‍💻 Developer
 
-Built with ❤️ using Angular 19
+Built with khaled karam using Angular 19
 
 ---
 
